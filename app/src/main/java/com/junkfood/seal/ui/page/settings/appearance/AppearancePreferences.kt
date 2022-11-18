@@ -208,12 +208,14 @@ fun AppearancePreferences(
 }
 
 @Composable
-fun ColorButton(modifier: Modifier = Modifier, color: Color = Color.Green) {
-    val corePalette = CorePalette.of(color.toArgb())
-    val seedColor = corePalette.a2.tone(60)
-
+fun ColorButton(
+    modifier: Modifier = Modifier,
+    color: Color = Color.Green,
+    corePalette: CorePalette = CorePalette.of(color.toArgb()),
+    seedColor: Int = corePalette.a2.tone(60)
+) {
     ColorButtonImpl(
-        modifier = modifier,
+        modifier = modifier.clearAndSetSemantics {  },
         corePalette = corePalette,
         color = color,
         isDarkTheme = LocalDarkTheme.current.isDarkTheme(),

@@ -18,12 +18,14 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ExperimentalMaterialApi
@@ -31,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Error
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Subscriptions
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,14 +50,19 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -66,6 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.ExperimentalLifecycleComposeApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -73,14 +82,18 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionStatus
 import com.google.accompanist.permissions.rememberPermissionState
 import com.junkfood.seal.R
+import com.junkfood.seal.ui.common.LocalVideoThumbnailLoader
 import com.junkfood.seal.ui.common.LocalWindowWidthState
 import com.junkfood.seal.ui.component.NavigationBarSpacer
 import com.junkfood.seal.ui.component.VideoCard
 import com.junkfood.seal.ui.component.VideoCardPreview
+import com.junkfood.seal.ui.page.settings.appearance.ColorButton
 import com.junkfood.seal.ui.theme.PreviewThemeLight
+import com.junkfood.seal.ui.theme.createPaletteSync
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.WELCOME_DIALOG
 import com.junkfood.seal.util.TextUtil
+import material.io.color.palettes.CorePalette
 
 
 @OptIn(
@@ -202,6 +215,32 @@ fun DownloadPageImpl(
                 !PreferenceUtil.getValue(PreferenceUtil.DISABLE_PREVIEW) && !isInCustomCommandMode
             )
         }
+        var isPaletteAvailable by remember { mutableStateOf(false) }
+        var showPalette by remember { mutableStateOf(false) }
+
+        val swatchList = remember {
+            mutableStateListOf<Color>()
+        }
+        val context = LocalContext.current
+        val imageLoader = LocalVideoThumbnailLoader.current
+        LaunchedEffect(taskState.thumbnailUrl) {
+            with(taskState.thumbnailUrl) {
+                if (this.isNotEmpty()) {
+                    val bitmap = imageLoader.execute(
+                        coil.request.ImageRequest.Builder(context).data(this).allowHardware(false)
+                            .build()
+                    ).drawable?.toBitmap()
+                    bitmap?.let {
+                        val palette = createPaletteSync(it)
+                        swatchList.clear()
+                        palette.swatches.forEach { swatch ->
+                            swatchList.add(Color(swatch.rgb))
+                        }
+                        isPaletteAvailable = true
+                    }
+                }
+            }
+        }
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
@@ -217,6 +256,16 @@ fun DownloadPageImpl(
                         }
                     },
                     actions = {
+                        IconButton(
+                            onClick = { showPalette = !showPalette },
+                            enabled = isPaletteAvailable
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Palette,
+                                contentDescription = stringResource(id = R.string.dynamic_color)
+                            )
+                        }
+
                         IconButton(onClick = { navigateToDownloads() }) {
                             Icon(
                                 imageVector = Icons.Outlined.Subscriptions,
@@ -253,15 +302,12 @@ fun DownloadPageImpl(
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
                 )
-
-
                 Column(
-                    Modifier
-                        .padding(horizontal = 24.dp)
-                        .padding(top = 24.dp)
+                    Modifier.padding(top = 24.dp)
                 ) {
                     with(taskState) {
                         AnimatedVisibility(
+                            modifier = Modifier.padding(horizontal = 24.dp),
                             visible = showDownloadProgress && showVideoCard
                         ) {
                             if (!isPreview)
@@ -276,35 +322,57 @@ fun DownloadPageImpl(
                             else
                                 VideoCardPreview()
                         }
-                        InputUrl(
-                            url = url,
-                            hint = stringResource(R.string.video_url),
-                            progress = progress,
-                            showDownloadProgress = showDownloadProgress && !showVideoCard,
-                            error = isDownloadError,
-                        ) { url -> onUrlChanged(url) }
-                        AnimatedVisibility(
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut(),
-                            visible = debugMode && progressText.isNotEmpty()
+                        AnimatedVisibility(visible = showPalette) {
+                            LazyRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp),
+                                contentPadding = PaddingValues(horizontal = 18.dp)
+                            ) {
+                                for (color in swatchList.distinctBy { color ->
+                                    val corePalette: CorePalette = CorePalette.of(color.toArgb())
+                                    val seedColor: Int = corePalette.a2.tone(60)
+                                    seedColor
+                                }) {
+                                    item { ColorButton(modifier = Modifier, color = color) }
+                                }
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.padding(horizontal = 24.dp)
                         ) {
-                            Text(
-                                modifier = Modifier.padding(bottom = 12.dp),
-                                text = progressText,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodyMedium
+                            InputUrl(
+                                url = url,
+                                hint = stringResource(R.string.video_url),
+                                progress = progress,
+                                showDownloadProgress = showDownloadProgress && !showVideoCard,
+                                error = isDownloadError,
+                            ) { url -> onUrlChanged(url) }
+
+                            AnimatedVisibility(
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                                visible = debugMode && progressText.isNotEmpty()
+                            ) {
+                                Text(
+                                    modifier = Modifier.padding(bottom = 12.dp),
+                                    text = progressText,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                        AnimatedVisibility(visible = isDownloadError) {
+                            ErrorMessage(
+                                error = isDownloadError,
+                                copyToClipboard = isShowingErrorReport,
+                                errorMessage = errorMessage
                             )
                         }
+                        content()
                     }
-                    AnimatedVisibility(visible = isDownloadError) {
-                        ErrorMessage(
-                            error = isDownloadError,
-                            copyToClipboard = isShowingErrorReport,
-                            errorMessage = errorMessage
-                        )
-                    }
-                    content()
+
                     NavigationBarSpacer()
                 }
             }

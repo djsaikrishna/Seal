@@ -167,7 +167,7 @@ dependencies {
     implementation(libs.youtubedl.android.library)
     implementation(libs.youtubedl.android.ffmpeg)
     implementation(libs.youtubedl.android.aria2c)
-
+    implementation("androidx.palette:palette-ktx:1.0.0")
 //    implementation("com.github.xibr.youtubedl-android:library:$youtubedlAndroidVersion")
 //    implementation("com.github.xibr.youtubedl-android:ffmpeg:$youtubedlAndroidVersion")
 //    implementation("com.github.xibr.youtubedl-android:aria2c:$youtubedlAndroidVersion")

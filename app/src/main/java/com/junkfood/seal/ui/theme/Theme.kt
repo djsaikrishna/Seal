@@ -3,6 +3,7 @@ package com.junkfood.seal.ui.theme
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.Bitmap
 import android.view.Window
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -14,6 +15,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import androidx.palette.graphics.Palette
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.google.android.material.color.DynamicColors
 import com.google.android.material.color.MaterialColors
@@ -23,6 +25,8 @@ import com.junkfood.seal.ui.theme.ColorScheme.colorSchemeFromColor
 fun Color.applyOpacity(enabled: Boolean): Color {
     return if (enabled) this else this.copy(alpha = 0.62f)
 }
+
+fun createPaletteSync(bitmap: Bitmap): Palette = Palette.from(bitmap).generate()
 
 @Composable
 fun Color.harmonizeWithPrimary(): Color {
