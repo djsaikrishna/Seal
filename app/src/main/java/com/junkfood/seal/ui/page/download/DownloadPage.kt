@@ -155,6 +155,7 @@ fun DownloadPage(
     val clipboardManager = LocalClipboardManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val useDialog = LocalWindowWidthState.current != WindowWidthSizeClass.Compact
+    val view = LocalView.current
     var showDownloadDialog by rememberSaveable { mutableStateOf(false) }
     var showMeteredNetworkDialog by remember { mutableStateOf(false) }
 
@@ -183,21 +184,16 @@ fun DownloadPage(
             storagePermission.launchPermissionRequest()
         }
     }
-    val sheetState =
-        rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
 
     val downloadCallback: () -> Unit = {
+        view.slightHapticFeedback()
         keyboardController?.hide()
         if (NOTIFICATION.getBoolean() && notificationPermission?.status?.isGranted == false) {
             showNotificationDialog = true
         }
         if (CONFIGURE.getBoolean()) {
             showDownloadDialog = true
-            if (!useDialog) scope.launch {
-                delay(50)
-                sheetState.show()
-            }
         } else {
             checkPermissionOrDownload()
         }
@@ -288,17 +284,10 @@ fun DownloadPage(
 
         DownloadSettingDialog(useDialog = useDialog,
             showDialog = showDownloadDialog,
-            sheetState = sheetState,
             onNavigateToCookieGeneratorPage = onNavigateToCookieGeneratorPage,
             onDownloadConfirm = { checkPermissionOrDownload() },
             onDismissRequest = {
-                if (!useDialog) {
-                    scope.launch { sheetState.hide() }.invokeOnCompletion {
-                        showDownloadDialog = false
-                    }
-                } else {
-                    showDownloadDialog = false
-                }
+                showDownloadDialog = false
             }
         )
     }

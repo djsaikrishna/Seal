@@ -62,7 +62,7 @@
     <string name="link_copied">Collegamento copiato negli appunti</string>
     <string name="open_url">Apri il collegamento</string>
     <string name="remove">Rimuovi</string>
-    <string name="delete_file">Elimina</string>
+    <string name="delete_file">Elimina file</string>
     <string name="credits_desc">Crediti e software liberi</string>
     <string name="custom_command">Comando personalizzato</string>
     <string name="custom_command_template">Template di comando</string>
@@ -401,4 +401,7 @@
     <string name="redownload">Riscarica</string>
     <string name="search_in_downloads">Cerca nei file scaricati</string>
     <string name="search">Cerca</string>
+    <string name="every_day">Ogni giorno</string>
+    <string name="every_week">Ogni settimana</string>
+    <string name="every_month">Ogni mese</string>
 </resources>

@@ -26,12 +26,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
+import com.junkfood.seal.Downloader
 import com.junkfood.seal.R
 import com.junkfood.seal.ui.common.LocalWindowWidthState
 import com.junkfood.seal.ui.common.Route
@@ -68,11 +70,15 @@ import com.junkfood.seal.ui.page.settings.network.WebViewPage
 import com.junkfood.seal.ui.page.videolist.VideoListPage
 import com.junkfood.seal.util.PreferenceUtil
 import com.junkfood.seal.util.PreferenceUtil.getBoolean
+import com.junkfood.seal.util.PreferenceUtil.getInt
+import com.junkfood.seal.util.PreferenceUtil.getLong
 import com.junkfood.seal.util.PreferenceUtil.getString
 import com.junkfood.seal.util.ToastUtil
 import com.junkfood.seal.util.UpdateUtil
-import com.junkfood.seal.util.YT_DLP
-import com.junkfood.seal.util.YT_DLP_UPDATE
+import com.junkfood.seal.util.YT_DLP_AUTO_UPDATE
+import com.junkfood.seal.util.YT_DLP_UPDATE_INTERVAL
+import com.junkfood.seal.util.YT_DLP_UPDATE_TIME
+import com.junkfood.seal.util.YT_DLP_VERSION
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -203,21 +209,38 @@ fun HomeEntry(
         WelcomeDialog {
             navController.navigate(Route.SETTINGS)
         }
+
+        val downloaderState by Downloader.downloaderState.collectAsStateWithLifecycle()
+
         LaunchedEffect(Unit) {
-            if (!YT_DLP_UPDATE.getBoolean()
-                && YT_DLP.getString().isNotEmpty()
+            if (downloaderState !is Downloader.State.Idle) return@LaunchedEffect
+
+            if (!YT_DLP_AUTO_UPDATE.getBoolean() && YT_DLP_VERSION.getString()
+                    .isNotEmpty()
             ) return@LaunchedEffect
+
+            if (!PreferenceUtil.isNetworkAvailableForDownload()) {
+                return@LaunchedEffect
+            }
+
+            val lastUpdateTime = YT_DLP_UPDATE_TIME.getLong()
+            val currentTime = System.currentTimeMillis()
+
+            if (currentTime < lastUpdateTime + YT_DLP_UPDATE_INTERVAL.getLong()) {
+                return@LaunchedEffect
+            }
+
             runCatching {
+                Downloader.updateState(state = Downloader.State.Updating)
                 withContext(Dispatchers.IO) {
-                    val res = UpdateUtil.updateYtDlp()
-                    if (res == YoutubeDL.UpdateStatus.DONE) {
-                        ToastUtil.makeToastSuspend(context.getString(R.string.yt_dlp_up_to_date) + " (${YT_DLP.getString()})")
-                    }
+                    UpdateUtil.updateYtDlp()
                 }
             }.onFailure {
                 it.printStackTrace()
             }
+            Downloader.updateState(state = Downloader.State.Idle)
         }
+
         LaunchedEffect(Unit) {
             if (!PreferenceUtil.isNetworkAvailableForDownload() || !PreferenceUtil.isAutoUpdateEnabled()
             )
